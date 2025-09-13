@@ -62,6 +62,6 @@ This project aims to provide **data-driven insights** for **wildlife protection*
 ---
 
 ## 🧑‍💻 Author
-Developed by **[Your Name]**  
+Developed by **[PIYUSH KUMAR SAHOO]**  
 Cybersecurity & AI Enthusiast | Focused on real-world applications of computer vision in safety and conservation.  
 
