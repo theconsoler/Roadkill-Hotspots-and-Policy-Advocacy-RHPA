@@ -1,0 +1,25 @@
+
+!pip install opencv-python numpy ultralytics matplotlib
+
+
+
+def classify_risk(box, frame_width):
+    """
+    Classify the risk level based on the animal's position.
+
+    Parameters:
+    - box: Bounding box coordinates (x_min, y_min, x_max, y_max)
+    - frame_width: Width of the video frame
+
+    Returns:
+    - Risk level: "High", "Medium", or "Low"
+    """
+    x_min, _, x_max, _ = box
+    center_x = (x_min + x_max) / 2  # Get center of bounding box
+
+    if frame_width * 0.3 < center_x < frame_width * 0.7:
+        return "High Risk"
+    elif center_x < frame_width * 0.3 or center_x > frame_width * 0.7:
+        return "Medium Risk"
+    else:
+        return "Low Risk"
