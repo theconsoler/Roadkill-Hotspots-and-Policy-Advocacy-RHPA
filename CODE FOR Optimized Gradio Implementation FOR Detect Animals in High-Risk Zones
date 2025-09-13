@@ -1,0 +1,89 @@
+
+import cv2
+import numpy as np
+import torch
+import gradio as gr
+import winsound  # For Windows sound alerts
+from ultralytics import YOLO
+
+# Load YOLOv5xu model with GPU acceleration if available
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model = YOLO("C:/Users/ASUS/Downloads/JUPYTER PROJECTS/RHPA PROJECT/yolov5xu.pt").to(device)
+
+def process_video(input_video):
+    """
+    Process a video file, detect high-risk animals, and generate an output video with alerts.
+    """
+    cap = cv2.VideoCapture(input_video)
+    frame_width = int(cap.get(3))
+    frame_height = int(cap.get(4))
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+
+    # Resize dimensions for faster processing (reduce resolution by 50%)
+    frame_width_resized = frame_width // 2
+    frame_height_resized = frame_height // 2
+
+    output_video = "processed_alert_video.mp4"
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_video, fourcc, fps, (frame_width_resized, frame_height_resized))
+
+    frame_count = 0
+    process_every_nth_frame = 3  # Run YOLO every 3rd frame for speed improvement
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame_resized = cv2.resize(frame, (frame_width_resized, frame_height_resized))
+
+        # Run YOLO detection only on every 3rd frame (speed optimization)
+        if frame_count % process_every_nth_frame == 0:
+            results = model(frame_resized)
+
+            for result in results:
+                boxes = result.boxes.xyxy.cpu().numpy()  # Get bounding boxes
+
+                for box in boxes:
+                    x_min, y_min, x_max, y_max = map(int, box)
+
+                    # Draw bounding box
+                    cv2.rectangle(frame_resized, (x_min, y_min), (x_max, y_max), (0, 0, 255), 2)  # Red for alert
+
+                    # Check if animal is in the high-risk zone (center of frame)
+                    center_x = (x_min + x_max) / 2
+
+                    if frame_width_resized * 0.3 < center_x < frame_width_resized * 0.7:
+                        print("High-Risk Animal Detected! Sending Alert...")
+
+                        # Play an alert sound (Windows only)
+                        try:
+                            winsound.Beep(1000, 500)
+                        except RuntimeError:
+                            print("Beep function failed (not supported on this system).")
+
+                        # Display warning on video
+                        cv2.putText(frame_resized, "HIGH-RISK ANIMAL!", (x_min, y_min - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+
+        # Write processed frame to output video
+        out.write(frame_resized)
+        frame_count += 1  # Increment frame counter
+
+    cap.release()
+    out.release()
+
+    return output_video
+
+# Create a Gradio interface
+interface = gr.Interface(
+    fn=process_video,
+    inputs=gr.Video(label="Upload Video"),
+    outputs=gr.Video(label="Processed Video"),
+    title="Detect Animals in High-Risk Zones",
+    description="Upload a video to detect animals in high-risk zones using YOLOv5xu and receive real-time alerts."
+)
+
+# Launch the interface
+interface.launch()
+
