@@ -1,0 +1,34 @@
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from ultralytics import YOLO
+
+# Load YOLOv5 model
+model = YOLO("C:/Users/ASUS/Downloads/JUPYTER PROJECTS/RHPA PROJECT/yolov5xu.pt")
+
+# Load video
+video_path = "C:/Users/ASUS/Downloads/Stock Footage Stray dog.mp4"
+cap = cv2.VideoCapture(video_path)
+
+# Process video frame by frame
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Run YOLOv5 on the frame
+    results = model(frame)
+
+    # Extract detected frame
+    for result in results:
+        # Convert the result image to NumPy format
+        im_array = result.plot()  # This function adds the bounding boxes
+        im_rgb = cv2.cvtColor(im_array, cv2.COLOR_BGR2RGB)  # Convert to RGB format
+
+        # Display the image inside Jupyter Notebook
+        plt.figure(figsize=(10, 6))
+        plt.imshow(im_rgb)
+        plt.axis("off")  # Hide axis
+        plt.show()
+
+cap.release()
