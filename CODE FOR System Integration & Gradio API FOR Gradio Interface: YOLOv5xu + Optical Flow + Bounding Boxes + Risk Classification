@@ -1,0 +1,112 @@
+!pip install gradio
+
+import cv2
+import numpy as np
+import gradio as gr
+from ultralytics import YOLO
+
+# Load YOLOv5xu model
+model = YOLO("C:/Users/ASUS/Downloads/JUPYTER PROJECTS/RHPA PROJECT/yolov5xu.pt")
+
+def classify_risk(box, frame_width):
+    """
+    Classify the risk level based on the animal's position.
+
+    Parameters:
+    - box: Bounding box coordinates (x_min, y_min, x_max, y_max)
+    - frame_width: Width of the video frame
+
+    Returns:
+    - Risk level: "High", "Medium", or "Low"
+    """
+    x_min, _, x_max, _ = box
+    center_x = (x_min + x_max) / 2  # Get center of bounding box
+
+    if frame_width * 0.3 < center_x < frame_width * 0.7:
+        return "High Risk"
+    elif center_x < frame_width * 0.3 or center_x > frame_width * 0.7:
+        return "Medium Risk"
+    else:
+        return "Low Risk"
+
+def process_video(input_video):
+    """
+    Process a video file and detect animals using YOLOv5xu.
+    Apply Optical Flow to classify motion and save the output video.
+    """
+    cap = cv2.VideoCapture(input_video)
+    frame_width = int(cap.get(3))
+    frame_height = int(cap.get(4))
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+
+    output_video = "processed_video.mp4"
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_video, fourcc, fps, (frame_width, frame_height))
+
+    # Read first frame
+    ret, prev_frame = cap.read()
+    if not ret:
+        cap.release()
+        return "Error: Unable to read the video."
+
+    prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
+
+    while cap.isOpened():
+        ret, next_frame = cap.read()
+        if not ret:
+            break
+
+        next_gray = cv2.cvtColor(next_frame, cv2.COLOR_BGR2GRAY)
+
+        # Compute Optical Flow
+        flow = cv2.calcOpticalFlowFarneback(prev_gray, next_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+        movement = np.mean(np.abs(flow))
+
+        # Determine Alive or Dead
+        motion_status = "Alive" if movement > 0.1 else "Potentially Dead"
+
+        # Detect animals with YOLO
+        results = model(next_frame)
+
+        for result in results:
+            boxes = result.boxes.xyxy.cpu().numpy()  # Get bounding boxes
+            confidences = result.boxes.conf.cpu().numpy()  # Get confidence scores
+            class_ids = result.boxes.cls.cpu().numpy()  # Get class IDs
+
+            for box, conf, class_id in zip(boxes, confidences, class_ids):
+                x_min, y_min, x_max, y_max = map(int, box)
+
+                # Assign risk level
+                risk_level = classify_risk(box, frame_width)
+
+                # Draw bounding box
+                color = (0, 255, 0) if motion_status == "Alive" else (0, 0, 255)  # Green for alive, Red for dead
+                cv2.rectangle(next_frame, (x_min, y_min), (x_max, y_max), color, 2)
+
+                # Display status and risk level
+                label = f"{motion_status}, {risk_level} ({conf:.2f})"
+                cv2.putText(next_frame, label, (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
+        # Write processed frame to output video
+        out.write(next_frame)
+
+        # Update previous frame for next iteration
+        prev_gray = next_gray
+
+    cap.release()
+    out.release()
+
+    return output_video
+
+# Create a Gradio interface
+interface = gr.Interface(
+    fn=process_video,
+    inputs=gr.Video(label="Upload Video"),
+    outputs=gr.Video(label="Processed Video"),
+    title="Animal Detection System",
+    description="Upload a video to detect animals and assess risk level using YOLOv5xu and Optical Flow."
+)
+
+# Launch the interface
+interface.launch()
+
