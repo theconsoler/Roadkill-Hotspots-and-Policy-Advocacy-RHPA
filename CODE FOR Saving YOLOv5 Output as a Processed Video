@@ -1,0 +1,41 @@
+import cv2
+import numpy as np
+from ultralytics import YOLO
+
+# Load YOLOv5 model
+model = YOLO("C:/Users/ASUS/Downloads/JUPYTER PROJECTS/RHPA PROJECT/yolov5xu.pt")
+
+# Load input video
+video_path = "C:/Users/ASUS/Downloads/Stock Footage Stray dog.mp4"
+cap = cv2.VideoCapture(video_path)
+
+# Get video properties
+frame_width = int(cap.get(3))  # Video width
+frame_height = int(cap.get(4))  # Video height
+fps = int(cap.get(cv2.CAP_PROP_FPS))  # Frames per second
+
+# Define codec and create VideoWriter object
+output_path = "C:/Users/ASUS/Downloads/JUPYTER PROJECTS/RHPA PROJECT/output_video.mp4"
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4 format
+out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+
+# Process video frame by frame
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Run YOLOv5 on the frame
+    results = model(frame)
+
+    # Extract detected frame
+    for result in results:
+        im_array = result.plot()  # Adds bounding boxes to the frame
+
+    # Write processed frame to output video
+    out.write(im_array)
+
+cap.release()
+out.release()
+
+print(f"Processed video saved at: {output_path}")
